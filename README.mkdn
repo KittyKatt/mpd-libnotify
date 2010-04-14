@@ -21,7 +21,7 @@ imagemagick
 How do I get mpdnotify? (Arch Linux)
 ---------------------
 
-1. Install `mpdnotify` from the AUR. That's it!
+1. Install `mpdnotify-git` from the AUR. That's it!
 
 
 How do I get mpdnotify? (Others)
