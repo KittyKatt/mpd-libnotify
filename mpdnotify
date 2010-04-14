@@ -1,0 +1,140 @@
+#!/bin/bash
+#
+# pbrisbin 2010
+#
+# http://pbrisbin.com:8080/bin/bashnotify
+#
+# modify the config after it's written!
+#
+# modified by KittyKatt (kittykatt@archlinux.us)
+#                       (http://www.silverirc.com/kittykatt/) 2010
+#
+###
+
+### utilities {{{
+message() { echo 'usage: bashnotify [start|stop|restart]'; exit 1; }
+
+logger() { echo "$(date +'[ %d %b %Y %H:%M ]') :: $*" | tee -a "$log"; }
+
+errorout() { logger "error: $*"; exit 1; }
+
+# }}}
+
+### write config file {{{
+write_config() {
+  if [ ! -f "$config" ]; then
+
+    logger "NOTE: writing example config to $config..."
+    logger "you should edit this file before starting the deamon"
+
+    cat > "$config" << EOF
+#!/bin/bash
+#
+# bashnotify config - any valid bash is allowed, you
+# only need to define handle_event() for the deamon
+# to run properly
+#
+# \$mydir exists, and it's value is $mydir
+#
+###
+
+###
+#
+# the actual handle_event() definition
+#
+# this is the only requirement for a valid config
+#
+###
+
+handle_event() {
+  coverDir="$HOME/.covers/"
+  tmpCover="/tmp/cover"
+  mpdPID=$(pidof mpd)
+
+  if [[ -z $mpdPID ]]; then
+    echo "MPD is not currently running!"
+    exit
+  else
+    mpcAlbum=$(mpc --format '%album%' | head -1)
+    mpcArtist=$(mpc --format '%artist%' | head -1)
+    mpcTitle=$(mpc --format '%title%' | head -1)
+    mpcLength=$(mpc --format '%time%' | head -1)
+    if [ -f "/tmp/cover" ]; then rm /tmp/cover; fi
+    if [ -f "$coverDir/$mpcAlbum" ]; then
+      cp "$coverDir/$mpcAlbum" /tmp/cover
+      mogrify -resize 65x65 /tmp/cover
+      [[ "${#mpcArtist}" -gt "21" ]] && mpcArtist=$(echo "`echo $mpcArtist | head -1 | cut -c1-20`...")
+      [[ "${#mpcTitle}" -gt "31" ]] && mpcTitle=$(echo "`echo $mpcTitle | head -1 | cut -c1-30`...")
+      [[ "${#mpcAlbum}" -gt "31" ]] && mpcAlbum=$(echo "`echo $mpcAlbum | head -1 | cut -c1-30`...")
+      [[ -z $mpcArtist ]] && mpcAlbum="Could not find Artist Name"
+      [[ -z $mpcTitle ]] && mpcAlbum="Could not find Song Title"
+      [[ -z $mpcAlbum ]] && mpcAlbum="Could not find Album Name"
+      [[ -z $mpcLength ]] && mpcAlbum="Could not find Song Length"
+      notify-send --expire-time=2000 -i "/tmp/cover" "MPD Notification" "`echo "<b>${mpcTitle}</b>"; echo "<u>By</u>: ${mpcArtist}"; echo "<u>From</u>:  ${mpcAlbum}"; echo "<u>Length</u>: ${mpcLength}"`"
+    else
+      notify-send --expire-time=2000 "MPD Notification" "`echo "<b>${mpcTitle}</b>"; echo "<u>By</u>: ${mpcArtist}"; echo "<u>From</u>:  ${mpcAlbum}"; echo "<u>Length</u>: ${mpcLength}"`"
+    fi
+  fi
+}
+
+EOF
+
+  exit 0
+
+  fi
+
+  . "$config"
+
+  type -p handle_event || errorout 'handle_event() not defined, check your config'
+}
+
+# }}}
+
+### start/stop deamon {{{
+start_daemon() {
+  [ -f "$pid" ] && errorout "file found at $pid, daemon already running?"
+
+  # start listening in background
+  ( while read -r; do
+      handle_event
+    done < <(mpc idleloop player) ) &
+
+  echo $! > "$pid"
+}
+
+stop_daemon() {
+  if [ -f "$pid" ]; then
+    kill $(cat "$pid") || errorout 'error stopping daemon'
+
+    rm "$pid"
+  fi
+}
+
+# }}}
+
+### constants
+
+mydir="$XDG_CONFIG_HOME/mpdnotify/"
+
+config="$mydir/config"
+
+pid="$mydir/pid"
+
+log="$mydir/log"
+
+pipe="$mydir/pipe"
+
+### run it
+
+if [ ! -d "$mydir" ]; then
+  mkdir -p "$mydir" || errorout "unable to create my dir $mydir"
+fi
+
+write_config
+
+case "$1" in
+  start)   start_daemon                       ;;
+  stop)    stop_daemon                        ;;
+  restart) stop_daemon; sleep 3; start_daemon ;;
+  *)       message                            ;;
+esac
