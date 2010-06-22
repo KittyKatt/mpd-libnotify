@@ -12,7 +12,7 @@
 ###
 
 ### utilities {{{
-message() { echo 'usage: bashnotify [start|stop|restart]'; exit 1; }
+message() { echo 'usage: mpdnotify [start|stop|restart]'; exit 1; }
 
 logger() { echo "$(date +'[ %d %b %Y %H:%M ]') :: $*" | tee -a "$log"; }
 
@@ -30,7 +30,7 @@ write_config() {
     cat > "$config" << EOF
 #!/bin/bash
 #
-# bashnotify config - any valid bash is allowed, you
+# mpdnotify config - any valid bash is allowed, you
 # only need to define handle_event() for the deamon
 # to run properly
 #
@@ -46,10 +46,39 @@ write_config() {
 #
 ###
 
+fetch_cover () {
+  album=$(mpc --format "%album%" | head -1)
+  # do we have a valid album name
+  file="$coverDir/$album"
+  # Does the covers directory exist? Make it if it does not.
+  if [ ! -d "$coverDir" ]; then mkdir -p "${coverDir}"; fi
+  # have we not fetched this already
+  if [ ! -f "$file" ] ; then
+    echo -n "$file is not in covers... "
+    echo "${album// /+}"
+    url="http://www.albumart.org/index.php?srchkey=${album// /+}&itempage=1&newsearch=1&searchindex=Music"
+    cover_url=$(curl -s "$url" | awk -F 'src=' '/zoom-icon.jpg/ {print $2}' | cut -d '"' -f 2 | head -n1)
+    # is it available
+    if [ -n "$cover_url" ]; then
+      echo retrieved
+      wget -q -O "$file" "$cover_url"
+    else
+      echo NOT available 
+    fi
+  fi
+}
+
 handle_event() {
   coverDir="$HOME/.covers/"
   tmpCover="/tmp/cover"
+  baseCover="$HOME/.config/mpdnotify/base.png"
+  topCover="$HOME/.config/mpdnotify/top.png"
+  noCover="$HOME/.config/mpdnotify/NOCOVER.png"
   mpdPID=$(pidof mpd)
+  mpcArtist="Could not find Artist's name"
+  mpcTitle="Could not find Song's title"
+  mpcAlbum="Could not find Album's name"
+  mpcLength="Could not find Song's length"
 
   if [[ -z $mpdPID ]]; then
     echo "MPD is not currently running!"
@@ -59,20 +88,34 @@ handle_event() {
     mpcArtist=$(mpc --format '%artist%' | head -1)
     mpcTitle=$(mpc --format '%title%' | head -1)
     mpcLength=$(mpc --format '%time%' | head -1)
-    if [ -f "/tmp/cover" ]; then rm /tmp/cover; fi
+    if [ -f "${tmpCover}" ]; then rm "${tmpCover}"; fi
     if [ -f "$coverDir/$mpcAlbum" ]; then
-      cp "$coverDir/$mpcAlbum" /tmp/cover
-      mogrify -resize 65x65 /tmp/cover
-      [[ "${#mpcArtist}" -gt "21" ]] && mpcArtist=$(echo "`echo $mpcArtist | head -1 | cut -c1-20`...")
-      [[ "${#mpcTitle}" -gt "31" ]] && mpcTitle=$(echo "`echo $mpcTitle | head -1 | cut -c1-30`...")
-      [[ "${#mpcAlbum}" -gt "31" ]] && mpcAlbum=$(echo "`echo $mpcAlbum | head -1 | cut -c1-30`...")
-      [[ -z $mpcArtist ]] && mpcAlbum="Could not find Artist Name"
-      [[ -z $mpcTitle ]] && mpcAlbum="Could not find Song Title"
-      [[ -z $mpcAlbum ]] && mpcAlbum="Could not find Album Name"
-      [[ -z $mpcLength ]] && mpcAlbum="Could not find Song Length"
-      notify-send --expire-time=2000 -i "/tmp/cover" "MPD Notification" "`echo "<b>${mpcTitle}</b>"; echo "<u>By</u>: ${mpcArtist}"; echo "<u>From</u>:  ${mpcAlbum}"; echo "<u>Length</u>: ${mpcLength}"`"
+      cp "$coverDir/$mpcAlbum" "${tmpCover}"
+      mogrify -resize 65x65! $tmpCover
+      convert $baseCover "$tmpCover" -geometry +4+3 -composite $topCover -geometry +0+0 -composite "$tmpCover"
+      [[ "${#mpcArtist}" -gt "25" ]] && mpcArtist=$(echo "${mpcArtist:0:25}...")
+      [[ "${#mpcTitle}" -gt "25" ]] && mpcTitle=$(echo "${mpcTitle:0:25}...")
+      [[ "${#mpcAlbum}" -gt "25" ]] && mpcAlbum=$(echo "${mpcAlbum:0:25}...")
+      notify-send --expire-time=1300 -i "${tmpCover}" "MPD Notification" "`echo "<u>${mpcTitle}</u>"; echo "By: <i>${mpcArtist}</i>"; echo "From: <i>${mpcAlbum}</i>"; echo "Length: <i>${mpcLength}</i>"`"
     else
-      notify-send --expire-time=2000 "MPD Notification" "`echo "<b>${mpcTitle}</b>"; echo "<u>By</u>: ${mpcArtist}"; echo "<u>From</u>:  ${mpcAlbum}"; echo "<u>Length</u>: ${mpcLength}"`"
+      fetch_cover
+      if [ -f "$coverDir/$mpcAlbum" ]; then
+        cp "$coverDir/$mpcAlbum" "${tmpCover}"
+        mogrify -resize 65x65! $tmpCover
+        convert $baseCover "$tmpCover" -geometry +4+3 -composite $topCover -geometry +0+0 -composite "$tmpCover"
+        [[ "${#mpcArtist}" -gt "25" ]] && mpcArtist=$(echo "${mpcArtist:0:25}...")
+        [[ "${#mpcTitle}" -gt "25" ]] && mpcTitle=$(echo "${mpcTitle:0:25}...")
+        [[ "${#mpcAlbum}" -gt "25" ]] && mpcAlbum=$(echo "${mpcAlbum:0:25}...")
+        notify-send --expire-time=1300 -i "${tmpCover}" "MPD Notification" "`echo "<u>${mpcTitle}</u>"; echo "By: <i>${mpcArtist}</i>"; echo "From: <i>${mpcAlbum}</i>"; echo "Length: <i>${mpcLength}</i>"`"
+      else
+        cp "$noCover" "${tmpCover}"
+        mogrify -resize 65x65! $tmpCover
+        convert $baseCover "$tmpCover" -geometry +4+3 -composite $topCover -geometry +0+0 -composite "$tmpCover"
+        [[ "${#mpcArtist}" -gt "25" ]] && mpcArtist=$(echo "${mpcArtist:0:25}...")
+        [[ "${#mpcTitle}" -gt "25" ]] && mpcTitle=$(echo "${mpcTitle:0:25}...")
+        [[ "${#mpcAlbum}" -gt "25" ]] && mpcAlbum=$(echo "${mpcAlbum:0:25}...")
+        notify-send --expire-time=1300 -i "${tmpCover}" "MPD Notification" "`echo "<u>${mpcTitle}</u>"; echo "By: <i>${mpcArtist}</i>"; echo "From: <i>${mpcAlbum}</i>"; echo "Length: <i>${mpcLength}</i>"`"
+      fi
     fi
   fi
 }
