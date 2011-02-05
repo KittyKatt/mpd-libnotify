@@ -71,9 +71,9 @@ fetch_cover () {
 handle_event() {
   coverDir="\$HOME/.covers/"
   tmpCover="/tmp/cover"
-  baseCover="/usr/share/mpd-libnotify/base.png"
-  topCover="/usr/share/mpd-libnotify/top.png"
-  noCover="/usr/share/mpd-libnotify/NOCOVER.png"
+  baseCover="/usr/share/mpd-libnotify/extras/base.png"
+  topCover="/usr/share/mpd-libnotify/extras/top.png"
+  noCover="/usr/share/mpd-libnotify/extras/NOCOVER.png"
   mpdPID=\$(pidof mpd)
   mpcArtist="Could not find Artist's name"
   mpcTitle="Could not find Song's title"
