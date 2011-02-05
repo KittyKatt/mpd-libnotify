@@ -69,6 +69,7 @@ fetch_cover () {
 }
 
 handle_event() {
+  showCover="true"
   coverDir="\$HOME/.covers/"
   tmpCover="/tmp/cover"
   baseCover="/usr/share/mpd-libnotify/extras/base.png"
@@ -88,17 +89,8 @@ handle_event() {
     mpcArtist=\$(mpc --format '%artist%' | head -1)
     mpcTitle=\$(mpc --format '%title%' | head -1)
     mpcLength=\$(mpc --format '%time%' | head -1)
-    if [ -f "\${tmpCover}" ]; then rm "\${tmpCover}"; fi
-    if [ -f "\$coverDir/\$mpcAlbum" ]; then
-      cp "\$coverDir/\$mpcAlbum" "\${tmpCover}"
-      mogrify -resize 65x65! \$tmpCover
-      convert \$baseCover "\$tmpCover" -geometry +4+3 -composite \$topCover -geometry +0+0 -composite "\$tmpCover"
-      [[ "\${#mpcArtist}" -gt "25" ]] && mpcArtist=\$(echo "\${mpcArtist:0:25}...")
-      [[ "\${#mpcTitle}" -gt "25" ]] && mpcTitle=\$(echo "\${mpcTitle:0:25}...")
-      [[ "\${#mpcAlbum}" -gt "25" ]] && mpcAlbum=\$(echo "\${mpcAlbum:0:25}...")
-      notify-send --expire-time=1300 -i "\${tmpCover}" "MPD Notification" "\`echo "<u>\${mpcTitle}</u>"; echo "By: <i>\${mpcArtist}</i>"; echo "From: <i>\${mpcAlbum}</i>"; echo "Length: <i>\${mpcLength}</i>"\`"
-    else
-      fetch_cover
+    if [ "\${showCover}" = "true" ]; then
+      if [ -f "\${tmpCover}" ]; then rm "\${tmpCover}"; fi
       if [ -f "\$coverDir/\$mpcAlbum" ]; then
         cp "\$coverDir/\$mpcAlbum" "\${tmpCover}"
         mogrify -resize 65x65! \$tmpCover
@@ -108,14 +100,27 @@ handle_event() {
         [[ "\${#mpcAlbum}" -gt "25" ]] && mpcAlbum=\$(echo "\${mpcAlbum:0:25}...")
         notify-send --expire-time=1300 -i "\${tmpCover}" "MPD Notification" "\`echo "<u>\${mpcTitle}</u>"; echo "By: <i>\${mpcArtist}</i>"; echo "From: <i>\${mpcAlbum}</i>"; echo "Length: <i>\${mpcLength}</i>"\`"
       else
-        cp "\$noCover" "\${tmpCover}"
-        mogrify -resize 65x65! \$tmpCover
-        convert \$baseCover "\$tmpCover" -geometry +4+3 -composite \$topCover -geometry +0+0 -composite "\$tmpCover"
-        [[ "\${#mpcArtist}" -gt "25" ]] && mpcArtist=\$(echo "\${mpcArtist:0:25}...")
-        [[ "\${#mpcTitle}" -gt "25" ]] && mpcTitle=\$(echo "\${mpcTitle:0:25}...")
-        [[ "\${#mpcAlbum}" -gt "25" ]] && mpcAlbum=\$(echo "\${mpcAlbum:0:25}...")
-        notify-send --expire-time=1300 -i "\${tmpCover}" "MPD Notification" "\`echo "<u>\${mpcTitle}</u>"; echo "By: <i>\${mpcArtist}</i>"; echo "From: <i>\${mpcAlbum}</i>"; echo "Length: <i>\${mpcLength}</i>"\`"
+        fetch_cover
+        if [ -f "\$coverDir/\$mpcAlbum" ]; then
+          cp "\$coverDir/\$mpcAlbum" "\${tmpCover}"
+          mogrify -resize 65x65! \$tmpCover
+          convert \$baseCover "\$tmpCover" -geometry +4+3 -composite \$topCover -geometry +0+0 -composite "\$tmpCover"
+          [[ "\${#mpcArtist}" -gt "25" ]] && mpcArtist=\$(echo "\${mpcArtist:0:25}...")
+          [[ "\${#mpcTitle}" -gt "25" ]] && mpcTitle=\$(echo "\${mpcTitle:0:25}...")
+          [[ "\${#mpcAlbum}" -gt "25" ]] && mpcAlbum=\$(echo "\${mpcAlbum:0:25}...")
+          notify-send --expire-time=1300 -i "\${tmpCover}" "MPD Notification" "\`echo "<u>\${mpcTitle}</u>"; echo "By: <i>\${mpcArtist}</i>"; echo "From: <i>\${mpcAlbum}</i>"; echo "Length: <i>\${mpcLength}</i>"\`"
+        else
+          cp "\$noCover" "\${tmpCover}"
+          mogrify -resize 65x65! \$tmpCover
+          convert \$baseCover "\$tmpCover" -geometry +4+3 -composite \$topCover -geometry +0+0 -composite "\$tmpCover"
+          [[ "\${#mpcArtist}" -gt "25" ]] && mpcArtist=\$(echo "\${mpcArtist:0:25}...")
+          [[ "\${#mpcTitle}" -gt "25" ]] && mpcTitle=\$(echo "\${mpcTitle:0:25}...")
+          [[ "\${#mpcAlbum}" -gt "25" ]] && mpcAlbum=\$(echo "\${mpcAlbum:0:25}...")
+          notify-send --expire-time=1300 -i "\${tmpCover}" "MPD Notification" "\`echo "<u>\${mpcTitle}</u>"; echo "By: <i>\${mpcArtist}</i>"; echo "From: <i>\${mpcAlbum}</i>"; echo "Length: <i>\${mpcLength}</i>"\`"
+        fi
       fi
+    else #if showCover is false
+      notify-send --expire-time=1300 "MPD Notification" "\`echo "<u>\${mpcTitle}</u>"; echo "By: <i>\${mpcArtist}</i>"; echo "From: <i>\${mpcAlbum}</i>"; echo "Length: <i>\${mpcLength}</i>"\`"
     fi
   fi
 }
