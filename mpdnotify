@@ -201,7 +201,12 @@ stop_daemon() {
 
 ### constants
 
-mydir="$XDG_CONFIG_HOME/mpdnotify"
+
+if [ "$XDG_CONFIG_HOME" ]; then
+	mydir="$XDG_CONFIG_HOME/mpdnotify"
+else
+	mydir="$HOME/.config/mpdnotify"
+fi
 
 config="$mydir/config"
 
